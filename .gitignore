@@ -1,0 +1,25 @@
+# Build results
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+
+# VS Code settings
+.vscode/
+
+# Logs
+*.log
+
+# ASP.NET data protection keys
+**/App_Data/
+
+# Auto-generated files
+*.dll
+*.pdb
+*.cache
+
+# Environment and secrets
+appsettings.Development.json
+appsettings.json
