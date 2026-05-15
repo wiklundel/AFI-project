@@ -44,6 +44,11 @@
     var pendingCard = Model.Cards.FirstOrDefault(c => c.State == "pending");
 }
 
+<form asp-controller="Home" asp-action="EndTurn" method="post">
+    <input type="hidden" name="gameId" value="@Model.GameId" />
+    <button type="submit">Avsluta tur</button>
+</form>
+
 @if (pendingCard != null)
 {
     <h2>Nuvarande låt</h2>

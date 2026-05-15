@@ -223,4 +223,44 @@ public class HomeController : Controller
 
 		return RedirectToAction("Game", new { id = gameId });
 	}
+
+	[HttpPost]
+	public async Task<IActionResult> EndTurn(string gameId)
+	{
+		string path = Path.Combine(Directory.GetCurrentDirectory(), "json", "serviceAccountKey.json");
+
+		Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", path);
+
+		FirestoreDb db = FirestoreDb.Create("hitsterapp-1902d");
+
+		DocumentReference gameRef = db.Collection("games").Document(gameId);
+		DocumentSnapshot gameSnapshot = await gameRef.GetSnapshotAsync();
+		Game game = gameSnapshot.ConvertTo<Game>();
+
+		CollectionReference cardsRef = gameRef.Collection("cards");
+
+		QuerySnapshot guessedCards = await cardsRef
+			.WhereEqualTo("State", "guessed")
+			.WhereEqualTo("PlayerId", game.CurrentPlayerId)
+			.GetSnapshotAsync();
+
+		foreach (DocumentSnapshot card in guessedCards.Documents)
+		{
+			await card.Reference.UpdateAsync("State", "safe");
+		}
+
+		QuerySnapshot playersSnapshot = await gameRef.Collection("players").GetSnapshotAsync();
+
+		List<string> playerIds = playersSnapshot.Documents
+			.Select(doc => doc.Id)
+			.ToList();
+
+		int currentIndex = playerIds.IndexOf(game.CurrentPlayerId);
+		int nextIndex = (currentIndex + 1) % playerIds.Count;
+		string nextPlayerId = playerIds[nextIndex];
+
+		await gameRef.UpdateAsync("CurrentPlayerId", nextPlayerId);
+
+		return RedirectToAction("Game", new { id = gameId });
+	}
 }
