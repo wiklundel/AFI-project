@@ -63,9 +63,22 @@ public class HomeController : Controller
 
 		List<MusicCard> cards = new()
 		{
+			new MusicCard { Title = "Rolling in the Deep", Artist = "Adele", ReleaseYear = 2010 },
 			new MusicCard { Title = "Dancing Queen", Artist = "ABBA", ReleaseYear = 1976 },
 			new MusicCard { Title = "Billie Jean", Artist = "Michael Jackson", ReleaseYear = 1982 },
-			new MusicCard { Title = "Rolling in the Deep", Artist = "Adele", ReleaseYear = 2010 }
+			new MusicCard { Title = "Wonderwall", Artist = "Oasis", ReleaseYear = 1995 },
+			new MusicCard { Title = "Poker Face", Artist = "Lady Gaga", ReleaseYear = 2008 },
+			new MusicCard { Title = "Blinding Lights", Artist = "The Weeknd", ReleaseYear = 2019 },
+			new MusicCard { Title = "Hey Jude", Artist = "The Beatles", ReleaseYear = 1968 },
+			new MusicCard { Title = "Rolling in the Deep", Artist = "Adele", ReleaseYear = 2010 },
+			new MusicCard { Title = "Take On Me", Artist = "A-ha", ReleaseYear = 1985 },
+			new MusicCard { Title = "Lose Yourself", Artist = "Eminem", ReleaseYear = 2002 },
+			new MusicCard { Title = "Bad Romance", Artist = "Lady Gaga", ReleaseYear = 2009 },
+			new MusicCard { Title = "Titanium", Artist = "David Guetta", ReleaseYear = 2011 },
+			new MusicCard { Title = "Smells Like Teen Spirit", Artist = "Nirvana", ReleaseYear = 1991 },
+			new MusicCard { Title = "Someone Like You", Artist = "Adele", ReleaseYear = 2011 },
+			new MusicCard { Title = "Wake Me Up", Artist = "Avicii", ReleaseYear = 2013 },
+			new MusicCard { Title = "Bohemian Rhapsody", Artist = "Queen", ReleaseYear = 1975 }
 		};
 
 		foreach (var card in cards)
@@ -125,7 +138,8 @@ public class HomeController : Controller
 			CurrentPlayerId = game.CurrentPlayerId,
 			CurrentPlayerName = currentPlayerName,
 			Players = players,
-			Cards = cards
+			Cards = cards,
+			WinnerId = game.WinnerId
 		};
 
 		return View(model);
@@ -156,17 +170,24 @@ public class HomeController : Controller
 			return RedirectToAction("Game", new { id = gameId });
 		}
 
-		// 2. Om inget pending finns, dra ett nytt deck-kort
+		// 2. Hämta alla kort som finns kvar i deck
 		QuerySnapshot deckCards = await cardsRef
 			.WhereEqualTo("State", "deck")
-			.Limit(1)
 			.GetSnapshotAsync();
 
-		if (deckCards.Documents.Count > 0)
+		if (deckCards.Documents.Count == 0)
 		{
-			DocumentSnapshot card = deckCards.Documents[0];
-			await card.Reference.UpdateAsync("State", "pending");
+			return RedirectToAction("Game", new { id = gameId });
 		}
+
+		// 3. Välj ett slumpmässigt kort
+		Random random = new Random();
+
+		DocumentSnapshot randomCard = deckCards.Documents[
+			random.Next(deckCards.Documents.Count)
+		];
+
+		await randomCard.Reference.UpdateAsync("State", "pending");
 
 		return RedirectToAction("Game", new { id = gameId });
 	}
@@ -284,6 +305,30 @@ public class HomeController : Controller
 		foreach (DocumentSnapshot card in guessedCards.Documents)
 		{
 			await card.Reference.UpdateAsync("State", "safe");
+		}
+
+		QuerySnapshot safeCards = await cardsRef
+		.WhereEqualTo("State", "safe")
+		.WhereEqualTo("PlayerId", game.CurrentPlayerId)
+		.GetSnapshotAsync();
+
+		int newScore = safeCards.Documents.Count;
+
+		DocumentReference currentPlayerRef = gameRef
+			.Collection("players")
+			.Document(game.CurrentPlayerId);
+
+		await currentPlayerRef.UpdateAsync("Score", newScore);
+
+		if (newScore >= 10)
+		{
+			await gameRef.UpdateAsync(new Dictionary<string, object>
+			{
+				{ "Status", "finished" },
+				{ "WinnerId", game.CurrentPlayerId }
+			});
+
+			return RedirectToAction("Game", new { id = gameId });
 		}
 
 		QuerySnapshot playersSnapshot = await gameRef.Collection("players").GetSnapshotAsync();

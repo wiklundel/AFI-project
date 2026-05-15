@@ -10,4 +10,5 @@ public class GameViewModel
 	public string CurrentPlayerName { get; set; } = "";
     public List<Player> Players { get; set; } = new();
 	public List<MusicCard> Cards { get; set; } = new();
+	public string WinnerId { get; set; } = "";
 }
