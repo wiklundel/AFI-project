@@ -4,6 +4,7 @@ using HitsterApp.Models;
 using Google.Cloud.Firestore;
 using HitsterApp.Models;
 using Google.Apis.Auth.OAuth2;
+using HitsterApp.ViewModels;
 
 namespace HitsterApp.Controllers;
 
@@ -66,13 +67,34 @@ public class HomeController : Controller
 	[HttpGet]
 	public async Task<IActionResult> Game(string id)
 	{
+		string path = Path.Combine(Directory.GetCurrentDirectory(), "json", "serviceAccountKey.json");
+
+		Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", path);
+
 		FirestoreDb db = FirestoreDb.Create("hitsterapp-1902d");
 
-		DocumentSnapshot snapshot = await db.Collection("games").Document(id).GetSnapshotAsync();
+		DocumentSnapshot gameSnapshot = await db.Collection("games").Document(id).GetSnapshotAsync();
 
-		ViewBag.GameId = id;
-		ViewBag.Status = snapshot.GetValue<string>("Status");
+		Game game = gameSnapshot.ConvertTo<Game>();
 
-		return View();
+		QuerySnapshot playersSnapshot = await db
+			.Collection("games")
+			.Document(id)
+			.Collection("players")
+			.GetSnapshotAsync();
+
+		List<Player> players = playersSnapshot.Documents
+			.Select(doc => doc.ConvertTo<Player>())
+			.ToList();
+
+		GameViewModel model = new GameViewModel
+		{
+			GameId = id,
+			Status = game.Status,
+			CurrentPlayerId = game.CurrentPlayerId,
+			Players = players
+		};
+
+		return View(model);
 	}
 }

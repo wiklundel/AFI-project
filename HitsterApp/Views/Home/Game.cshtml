@@ -1,6 +1,17 @@
+@model HitsterApp.ViewModels.GameViewModel
+
 <h1>Hitster-spel</h1>
 
-<p>Game ID: @ViewBag.GameId</p>
-<p>Status: @ViewBag.Status</p>
+<p>Game ID: @Model.GameId</p>
+<p>Status: @Model.Status</p>
 
-<p>Spelet finns nu i Firebase!</p>
+<h2>Spelare</h2>
+
+<ul>
+@foreach (var player in Model.Players)
+{
+    <li>
+        @player.Username — Poäng: @player.Score — Pengar: @player.Tokens
+    </li>
+}
+</ul>
