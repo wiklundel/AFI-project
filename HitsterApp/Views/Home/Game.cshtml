@@ -15,3 +15,19 @@
     </li>
 }
 </ul>
+
+<form asp-controller="Home" asp-action="DrawCard" method="post">
+    <input type="hidden" name="gameId" value="@Model.GameId" />
+    <button type="submit">Dra låt</button>
+</form>
+
+<h2>Låtkort</h2>
+
+<ul>
+@foreach (var card in Model.Cards)
+{
+    <li>
+        @card.Title — @card.Artist — @card.ReleaseYear — State: @card.State
+    </li>
+}
+</ul>

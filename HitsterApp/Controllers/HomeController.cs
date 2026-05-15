@@ -61,6 +61,18 @@ public class HomeController : Controller
 
 		await docRef.UpdateAsync("CurrentPlayerId", player1Ref.Id);
 
+		List<MusicCard> cards = new()
+		{
+			new MusicCard { Title = "Dancing Queen", Artist = "ABBA", ReleaseYear = 1976 },
+			new MusicCard { Title = "Billie Jean", Artist = "Michael Jackson", ReleaseYear = 1982 },
+			new MusicCard { Title = "Rolling in the Deep", Artist = "Adele", ReleaseYear = 2010 }
+		};
+
+		foreach (var card in cards)
+		{
+			await docRef.Collection("cards").AddAsync(card);
+		}
+
 		return RedirectToAction("Game", new { id = docRef.Id });
 	}
 
@@ -87,14 +99,69 @@ public class HomeController : Controller
 			.Select(doc => doc.ConvertTo<Player>())
 			.ToList();
 
+		QuerySnapshot cardsSnapshot = await db
+			.Collection("games")
+			.Document(id)
+			.Collection("cards")
+			.GetSnapshotAsync();
+
+		List<MusicCard> cards = cardsSnapshot.Documents
+			.Select(doc => doc.ConvertTo<MusicCard>())
+			.ToList();
+
 		GameViewModel model = new GameViewModel
 		{
 			GameId = id,
 			Status = game.Status,
 			CurrentPlayerId = game.CurrentPlayerId,
-			Players = players
+			Players = players,
+			Cards = cards
 		};
 
 		return View(model);
+	}
+
+	[HttpPost]
+	public async Task<IActionResult> DrawCard(string gameId)
+	{
+		string path = Path.Combine(
+			Directory.GetCurrentDirectory(),
+			"json",
+			"serviceAccountKey.json"
+		);
+
+		Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", path);
+
+		FirestoreDb db = FirestoreDb.Create("hitsterapp-1902d");
+
+		CollectionReference cardsRef = db
+			.Collection("games")
+			.Document(gameId)
+			.Collection("cards");
+
+		// 1. Kolla om det redan finns ett pending-kort
+		QuerySnapshot pendingCards = await cardsRef
+			.WhereEqualTo("State", "pending")
+			.Limit(1)
+			.GetSnapshotAsync();
+
+		if (pendingCards.Documents.Count > 0)
+		{
+			return RedirectToAction("Game", new { id = gameId });
+		}
+
+		// 2. Om inget pending finns, dra ett nytt deck-kort
+		QuerySnapshot deckCards = await cardsRef
+			.WhereEqualTo("State", "deck")
+			.Limit(1)
+			.GetSnapshotAsync();
+
+		if (deckCards.Documents.Count > 0)
+		{
+			DocumentSnapshot card = deckCards.Documents[0];
+			await card.Reference.UpdateAsync("State", "pending");
+		}
+
+		return RedirectToAction("Game", new { id = gameId });
 	}
 }
