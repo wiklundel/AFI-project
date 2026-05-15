@@ -45,6 +45,21 @@ public class HomeController : Controller
 
 		DocumentReference docRef = await db.Collection("games").AddAsync(game);
 
+		Player player1 = new Player
+		{
+			Username = "Anna"
+		};
+
+		Player player2 = new Player
+		{
+			Username = "Elvira"
+		};
+
+		DocumentReference player1Ref = await docRef.Collection("players").AddAsync(player1);
+		DocumentReference player2Ref = await docRef.Collection("players").AddAsync(player2);
+
+		await docRef.UpdateAsync("CurrentPlayerId", player1Ref.Id);
+
 		return RedirectToAction("Game", new { id = docRef.Id });
 	}
 
