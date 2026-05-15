@@ -59,6 +59,12 @@ public class HomeController : Controller
 		DocumentReference player1Ref = await docRef.Collection("players").AddAsync(player1);
 		DocumentReference player2Ref = await docRef.Collection("players").AddAsync(player2);
 
+		List<DocumentReference> playerRefs = new()
+		{
+			player1Ref,
+			player2Ref
+		};
+
 		await docRef.UpdateAsync("CurrentPlayerId", player1Ref.Id);
 
 		List<MusicCard> cards = new()
@@ -81,9 +87,15 @@ public class HomeController : Controller
 			new MusicCard { Title = "Bohemian Rhapsody", Artist = "Queen", ReleaseYear = 1975 }
 		};
 
-		foreach (var card in cards)
+		for (int i = 0; i < cards.Count; i++)
 		{
-			await docRef.Collection("cards").AddAsync(card);
+			if (i < playerRefs.Count)
+			{
+				cards[i].PlayerId = playerRefs[i].Id;
+				cards[i].State = "safe";
+			}
+
+			await docRef.Collection("cards").AddAsync(cards[i]);
 		}
 
 		return RedirectToAction("Game", new { id = docRef.Id });
