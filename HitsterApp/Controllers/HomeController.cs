@@ -96,8 +96,13 @@ public class HomeController : Controller
 			.GetSnapshotAsync();
 
 		List<Player> players = playersSnapshot.Documents
-			.Select(doc => doc.ConvertTo<Player>())
-			.ToList();
+		.Select(doc =>
+		{
+			Player player = doc.ConvertTo<Player>();
+			player.PlayerId = doc.Id;
+			return player;
+		})
+		.ToList();
 
 		QuerySnapshot cardsSnapshot = await db
 			.Collection("games")
@@ -124,11 +129,7 @@ public class HomeController : Controller
 	[HttpPost]
 	public async Task<IActionResult> DrawCard(string gameId)
 	{
-		string path = Path.Combine(
-			Directory.GetCurrentDirectory(),
-			"json",
-			"serviceAccountKey.json"
-		);
+		string path = Path.Combine(Directory.GetCurrentDirectory(), "json", "serviceAccountKey.json");
 
 		Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", path);
 
@@ -160,6 +161,64 @@ public class HomeController : Controller
 		{
 			DocumentSnapshot card = deckCards.Documents[0];
 			await card.Reference.UpdateAsync("State", "pending");
+		}
+
+		return RedirectToAction("Game", new { id = gameId });
+	}
+
+	[HttpPost]
+	public async Task<IActionResult> GuessCorrect(string gameId)
+	{
+		string path = Path.Combine(Directory.GetCurrentDirectory(), "json", "serviceAccountKey.json");
+
+		Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", path);
+
+		FirestoreDb db = FirestoreDb.Create("hitsterapp-1902d");
+
+		QuerySnapshot pendingCards = await db
+			.Collection("games")
+			.Document(gameId)
+			.Collection("cards")
+			.WhereEqualTo("State", "pending")
+			.Limit(1)
+			.GetSnapshotAsync();
+
+		DocumentReference gameRef = db.Collection("games").Document(gameId);
+		DocumentSnapshot gameSnapshot = await gameRef.GetSnapshotAsync();
+		Game game = gameSnapshot.ConvertTo<Game>();
+
+		if (pendingCards.Documents.Count > 0)
+		{
+			await pendingCards.Documents[0].Reference.UpdateAsync(new Dictionary<string, object>
+			{
+				{ "State", "guessed" },
+				{ "PlayerId", game.CurrentPlayerId }
+			});
+		}
+
+		return RedirectToAction("Game", new { id = gameId });
+	}
+
+	[HttpPost]
+	public async Task<IActionResult> GuessWrong(string gameId)
+	{
+		string path = Path.Combine(Directory.GetCurrentDirectory(), "json", "serviceAccountKey.json");
+
+		Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", path);
+
+		FirestoreDb db = FirestoreDb.Create("hitsterapp-1902d");
+
+		QuerySnapshot pendingCards = await db
+			.Collection("games")
+			.Document(gameId)
+			.Collection("cards")
+			.WhereEqualTo("State", "pending")
+			.Limit(1)
+			.GetSnapshotAsync();
+
+		if (pendingCards.Documents.Count > 0)
+		{
+			await pendingCards.Documents[0].Reference.UpdateAsync("State", "discarded");
 		}
 
 		return RedirectToAction("Game", new { id = gameId });

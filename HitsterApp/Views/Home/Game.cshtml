@@ -16,10 +16,51 @@
 }
 </ul>
 
+<h2>Tidslinjer</h2>
+
+@foreach (var player in Model.Players)
+{
+    <h3>@player.Username</h3>
+
+    var playerCards = Model.Cards
+        .Where(c => c.PlayerId == player.PlayerId && c.State != "discarded")
+        .OrderBy(c => c.ReleaseYear)
+        .ToList();
+
+    <ul>
+    @foreach (var card in playerCards)
+    {
+        <li>@card.Title — @card.Artist — @card.ReleaseYear — @card.State</li>
+    }
+    </ul>
+}
+
 <form asp-controller="Home" asp-action="DrawCard" method="post">
     <input type="hidden" name="gameId" value="@Model.GameId" />
     <button type="submit">Dra låt</button>
 </form>
+
+@{
+    var pendingCard = Model.Cards.FirstOrDefault(c => c.State == "pending");
+}
+
+@if (pendingCard != null)
+{
+    <h2>Nuvarande låt</h2>
+    <p>
+        @pendingCard.Title — @pendingCard.Artist
+    </p>
+
+    <form asp-controller="Home" asp-action="GuessCorrect" method="post">
+        <input type="hidden" name="gameId" value="@Model.GameId" />
+        <button type="submit">Gissa rätt</button>
+    </form>
+
+    <form asp-controller="Home" asp-action="GuessWrong" method="post">
+        <input type="hidden" name="gameId" value="@Model.GameId" />
+        <button type="submit">Gissa fel</button>
+    </form>
+}
 
 <h2>Låtkort</h2>
 

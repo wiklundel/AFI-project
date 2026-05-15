@@ -5,7 +5,9 @@ namespace HitsterApp.Models;
 [FirestoreData]
 public class Player
 {
-    [FirestoreProperty]
+    public string PlayerId { get; set; } = "";
+	
+	[FirestoreProperty]
     public string Username { get; set; } = "";
 
     [FirestoreProperty]
