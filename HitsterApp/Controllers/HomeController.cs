@@ -104,6 +104,10 @@ public class HomeController : Controller
 		})
 		.ToList();
 
+		string currentPlayerName = players
+			.FirstOrDefault(p => p.PlayerId == game.CurrentPlayerId)?
+			.Username ?? "Okänd spelare";
+
 		QuerySnapshot cardsSnapshot = await db
 			.Collection("games")
 			.Document(id)
@@ -119,6 +123,7 @@ public class HomeController : Controller
 			GameId = id,
 			Status = game.Status,
 			CurrentPlayerId = game.CurrentPlayerId,
+			CurrentPlayerName = currentPlayerName,
 			Players = players,
 			Cards = cards
 		};
@@ -202,24 +207,56 @@ public class HomeController : Controller
 	[HttpPost]
 	public async Task<IActionResult> GuessWrong(string gameId)
 	{
-		string path = Path.Combine(Directory.GetCurrentDirectory(), "json", "serviceAccountKey.json");
+		string path = Path.Combine(
+			Directory.GetCurrentDirectory(),
+			"json",
+			"serviceAccountKey.json"
+		);
 
 		Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", path);
 
 		FirestoreDb db = FirestoreDb.Create("hitsterapp-1902d");
 
-		QuerySnapshot pendingCards = await db
-			.Collection("games")
-			.Document(gameId)
-			.Collection("cards")
+		DocumentReference gameRef = db.Collection("games").Document(gameId);
+		DocumentSnapshot gameSnapshot = await gameRef.GetSnapshotAsync();
+		Game game = gameSnapshot.ConvertTo<Game>();
+
+		CollectionReference cardsRef = gameRef.Collection("cards");
+
+		// 1. Släng pending-kortet
+		QuerySnapshot pendingCards = await cardsRef
 			.WhereEqualTo("State", "pending")
 			.Limit(1)
 			.GetSnapshotAsync();
 
-		if (pendingCards.Documents.Count > 0)
+		foreach (DocumentSnapshot card in pendingCards.Documents)
 		{
-			await pendingCards.Documents[0].Reference.UpdateAsync("State", "discarded");
+			await card.Reference.UpdateAsync("State", "discarded");
 		}
+
+		// 2. Släng spelarens osäkrade kort
+		QuerySnapshot guessedCards = await cardsRef
+			.WhereEqualTo("State", "guessed")
+			.WhereEqualTo("PlayerId", game.CurrentPlayerId)
+			.GetSnapshotAsync();
+
+		foreach (DocumentSnapshot card in guessedCards.Documents)
+		{
+			await card.Reference.UpdateAsync("State", "discarded");
+		}
+
+		// 3. Byt tur
+		QuerySnapshot playersSnapshot = await gameRef.Collection("players").GetSnapshotAsync();
+
+		List<string> playerIds = playersSnapshot.Documents
+			.Select(doc => doc.Id)
+			.ToList();
+
+		int currentIndex = playerIds.IndexOf(game.CurrentPlayerId);
+		int nextIndex = (currentIndex + 1) % playerIds.Count;
+		string nextPlayerId = playerIds[nextIndex];
+
+		await gameRef.UpdateAsync("CurrentPlayerId", nextPlayerId);
 
 		return RedirectToAction("Game", new { id = gameId });
 	}
