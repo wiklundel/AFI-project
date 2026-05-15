@@ -28,4 +28,20 @@ public class HomeController : Controller
     {
         return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
     }
+
+	[HttpPost]
+	public IActionResult StartGame()
+	{
+		// Tillfälligt gameId tills Firebase-kopplingen är klar
+		string gameId = Guid.NewGuid().ToString();
+
+		return RedirectToAction("Game", new { id = gameId });
+	}
+
+	[HttpGet]
+	public IActionResult Game(string id)
+	{
+		ViewBag.GameId = id;
+		return View();
+	}
 }
