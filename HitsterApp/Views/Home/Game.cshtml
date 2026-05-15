@@ -11,21 +11,15 @@
 
     <h2>Spelet är slut!</h2>
     <p>Vinnare: @winner?.Username</p>
-}
-
-@if (Model.Status == "finished")
-{
-    var winner = Model.Players.FirstOrDefault(p => p.PlayerId == Model.WinnerId);
-
-    <h2>Spelet är slut!</h2>
-    <p>Vinnare: @winner?.Username</p>
 
     <form asp-controller="Home" asp-action="StartGame" method="post">
         <button type="submit">Starta nytt spel</button>
     </form>
 }
-
-<h2>Det är @Model.CurrentPlayerName:s tur</h2>
+else
+{
+    <h2>Det är @Model.CurrentPlayerName:s tur</h2>
+}
 
 <h2>Spelare</h2>
 
@@ -38,55 +32,80 @@
 }
 </ul>
 
+@{
+    var pendingCard = Model.Cards.FirstOrDefault(c => c.State == "pending");
+
+    var currentPlayerCards = Model.Cards
+        .Where(c => c.PlayerId == Model.CurrentPlayerId && c.State != "discarded")
+        .OrderBy(c => c.ReleaseYear)
+        .ToList();
+}
+
 <h2>Tidslinjer</h2>
 
 @foreach (var player in Model.Players)
 {
-    <h3>@player.Username</h3>
-
     var playerCards = Model.Cards
         .Where(c => c.PlayerId == player.PlayerId && c.State != "discarded")
         .OrderBy(c => c.ReleaseYear)
         .ToList();
 
-    <ul>
-    @foreach (var card in playerCards)
-    {
-        <li>@card.Title — @card.Artist — @card.ReleaseYear — @card.State</li>
-    }
-    </ul>
+    <h3>@player.Username</h3>
+
+    <div class="timeline">
+
+        @if (player.PlayerId == Model.CurrentPlayerId && pendingCard != null && Model.Status != "finished")
+        {
+            <form asp-controller="Home" asp-action="PlaceCard" method="post" class="drop-zone">
+                <input type="hidden" name="gameId" value="@Model.GameId" />
+                <input type="hidden" name="position" value="0" />
+                <button type="submit">+</button>
+            </form>
+        }
+
+        @for (int i = 0; i < playerCards.Count; i++)
+        {
+            <div class="song-card">
+                <strong>@playerCards[i].Title</strong>
+                <span>@playerCards[i].Artist</span>
+                <small>@playerCards[i].ReleaseYear</small>
+                <em>@playerCards[i].State</em>
+            </div>
+
+            @if (player.PlayerId == Model.CurrentPlayerId && pendingCard != null && Model.Status != "finished")
+            {
+                <form asp-controller="Home" asp-action="PlaceCard" method="post" class="drop-zone">
+                    <input type="hidden" name="gameId" value="@Model.GameId" />
+                    <input type="hidden" name="position" value="@(i + 1)" />
+                    <button type="submit">+</button>
+                </form>
+            }
+        }
+    </div>
 }
 
-<form asp-controller="Home" asp-action="DrawCard" method="post">
-    <input type="hidden" name="gameId" value="@Model.GameId" />
-    <button type="submit">Dra låt</button>
-</form>
-
-@{
-    var pendingCard = Model.Cards.FirstOrDefault(c => c.State == "pending");
+@if (Model.Status != "finished")
+{
+    <form asp-controller="Home" asp-action="DrawCard" method="post">
+        <input type="hidden" name="gameId" value="@Model.GameId" />
+        <button type="submit">Dra låt</button>
+    </form>
 }
 
-<form asp-controller="Home" asp-action="EndTurn" method="post">
-    <input type="hidden" name="gameId" value="@Model.GameId" />
-    <button type="submit">Avsluta tur</button>
-</form>
+@if (Model.Status != "finished")
+{
+    <form asp-controller="Home" asp-action="EndTurn" method="post">
+        <input type="hidden" name="gameId" value="@Model.GameId" />
+        <button type="submit">Avsluta tur</button>
+    </form>
+}
 
-@if (pendingCard != null)
+@if (pendingCard != null && Model.Status != "finished")
 {
     <h2>Nuvarande låt</h2>
     <p>
         @pendingCard.Title — @pendingCard.Artist
     </p>
-
-    <form asp-controller="Home" asp-action="GuessCorrect" method="post">
-        <input type="hidden" name="gameId" value="@Model.GameId" />
-        <button type="submit">Gissa rätt</button>
-    </form>
-
-    <form asp-controller="Home" asp-action="GuessWrong" method="post">
-        <input type="hidden" name="gameId" value="@Model.GameId" />
-        <button type="submit">Gissa fel</button>
-    </form>
 }
 
 <h2>Låtkort</h2>
@@ -99,3 +118,62 @@
     </li>
 }
 </ul>
+
+
+<style>
+    .timeline {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 24px;
+        padding: 16px;
+        border: 2px solid #ddd;
+        border-radius: 12px;
+        overflow-x: auto;
+        min-height: 140px;
+    }
+
+    .song-card {
+        min-width: 140px;
+        max-width: 140px;
+        min-height: 100px;
+        padding: 12px;
+        border: 2px solid #333;
+        border-radius: 12px;
+        background: white;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        text-align: center;
+        box-shadow: 2px 2px 6px rgba(0,0,0,0.15);
+    }
+
+    .song-card span,
+    .song-card small,
+    .song-card em {
+        display: block;
+    }
+
+    .drop-zone {
+        width: 24px;
+        transition: width 0.2s ease;
+    }
+
+    .drop-zone:hover {
+        width: 80px;
+    }
+
+    .drop-zone button {
+        width: 100%;
+        height: 100px;
+        border: 2px dashed #777;
+        border-radius: 12px;
+        background: #f5f5f5;
+        cursor: pointer;
+        font-size: 24px;
+    }
+
+    .drop-zone button:hover {
+        background: #e6e6e6;
+    }
+</style>

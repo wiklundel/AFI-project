@@ -357,4 +357,106 @@ public class HomeController : Controller
 
 		return RedirectToAction("Game", new { id = gameId });
 	}
+
+	[HttpPost]
+	public async Task<IActionResult> PlaceCard(string gameId, int position)
+	{
+		string path = Path.Combine(
+			Directory.GetCurrentDirectory(),
+			"json",
+			"serviceAccountKey.json"
+		);
+
+		Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", path);
+
+		FirestoreDb db = FirestoreDb.Create("hitsterapp-1902d");
+
+		DocumentReference gameRef = db.Collection("games").Document(gameId);
+		DocumentSnapshot gameSnapshot = await gameRef.GetSnapshotAsync();
+		Game game = gameSnapshot.ConvertTo<Game>();
+
+		CollectionReference cardsRef = gameRef.Collection("cards");
+
+		QuerySnapshot pendingSnapshot = await cardsRef
+			.WhereEqualTo("State", "pending")
+			.Limit(1)
+			.GetSnapshotAsync();
+
+		if (pendingSnapshot.Documents.Count == 0)
+		{
+			return RedirectToAction("Game", new { id = gameId });
+		}
+
+		DocumentSnapshot pendingDoc = pendingSnapshot.Documents[0];
+		MusicCard pendingCard = pendingDoc.ConvertTo<MusicCard>();
+
+		QuerySnapshot timelineSnapshot = await cardsRef
+			.WhereEqualTo("PlayerId", game.CurrentPlayerId)
+			.GetSnapshotAsync();
+
+		List<MusicCard> timeline = timelineSnapshot.Documents
+			.Select(doc => doc.ConvertTo<MusicCard>())
+			.Where(c => c.State == "safe" || c.State == "guessed")
+			.OrderBy(c => c.ReleaseYear)
+			.ToList();
+
+		bool correctPlacement = true;
+
+		if (position > 0)
+		{
+			int leftYear = timeline[position - 1].ReleaseYear;
+
+			if (pendingCard.ReleaseYear < leftYear)
+			{
+				correctPlacement = false;
+			}
+		}
+
+		if (position < timeline.Count)
+		{
+			int rightYear = timeline[position].ReleaseYear;
+
+			if (pendingCard.ReleaseYear > rightYear)
+			{
+				correctPlacement = false;
+			}
+		}
+
+		if (correctPlacement)
+		{
+			await pendingDoc.Reference.UpdateAsync(new Dictionary<string, object>
+			{
+				{ "State", "guessed" },
+				{ "PlayerId", game.CurrentPlayerId }
+			});
+		}
+		else
+		{
+			await pendingDoc.Reference.UpdateAsync("State", "discarded");
+
+			QuerySnapshot guessedCards = await cardsRef
+				.WhereEqualTo("State", "guessed")
+				.WhereEqualTo("PlayerId", game.CurrentPlayerId)
+				.GetSnapshotAsync();
+
+			foreach (DocumentSnapshot card in guessedCards.Documents)
+			{
+				await card.Reference.UpdateAsync("State", "discarded");
+			}
+
+			QuerySnapshot playersSnapshot = await gameRef.Collection("players").GetSnapshotAsync();
+
+			List<string> playerIds = playersSnapshot.Documents
+				.Select(doc => doc.Id)
+				.ToList();
+
+			int currentIndex = playerIds.IndexOf(game.CurrentPlayerId);
+			int nextIndex = (currentIndex + 1) % playerIds.Count;
+			string nextPlayerId = playerIds[nextIndex];
+
+			await gameRef.UpdateAsync("CurrentPlayerId", nextPlayerId);
+		}
+
+		return RedirectToAction("Game", new { id = gameId });
+	}
 }
