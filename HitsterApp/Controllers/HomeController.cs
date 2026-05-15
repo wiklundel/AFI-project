@@ -87,6 +87,12 @@ public class HomeController : Controller
 			new MusicCard { Title = "Bohemian Rhapsody", Artist = "Queen", ReleaseYear = 1975 }
 		};
 
+		Random random = new Random();
+
+		cards = cards
+			.OrderBy(c => random.Next())
+			.ToList();
+
 		for (int i = 0; i < cards.Count; i++)
 		{
 			if (i < playerRefs.Count)

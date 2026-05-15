@@ -18,7 +18,7 @@
 }
 else
 {
-    <h2>Det är @Model.CurrentPlayerName:s tur</h2>
+    <h2>Det är @Model.CurrentPlayerName's tur</h2>
 }
 
 <h2>Spelare</h2>
@@ -65,7 +65,7 @@ else
 
         @for (int i = 0; i < playerCards.Count; i++)
         {
-            <div class="song-card">
+            <div class="song-card @(playerCards[i].State == "guessed" ? "guessed-card" : "")">
                 <strong>@playerCards[i].Title</strong>
                 <span>@playerCards[i].Artist</span>
                 <small>@playerCards[i].ReleaseYear</small>
@@ -103,9 +103,14 @@ else
 @if (pendingCard != null && Model.Status != "finished")
 {
     <h2>Nuvarande låt</h2>
-    <p>
-        @pendingCard.Title — @pendingCard.Artist
-    </p>
+
+    <div class="pending-area">
+        <div class="song-card">
+            <strong>@pendingCard.Title</strong>
+            <span>@pendingCard.Artist</span>
+            <small>@pendingCard.ReleaseYear</small>
+        </div>
+    </div>
 }
 
 <h2>Låtkort</h2>
@@ -176,4 +181,24 @@ else
     .drop-zone button:hover {
         background: #e6e6e6;
     }
+
+	.pending-area {
+		margin-top: 20px;
+		margin-bottom: 30px;
+	}
+
+	.guessed-card {
+		border-style: dashed;
+		background: #fff7d6;
+		animation: wobble 1.5s ease-in-out infinite;
+	}
+
+	@@keyframes wobble {
+		0% { transform: rotate(0deg); }
+		25% { transform: rotate(-2deg); }
+		50% { transform: rotate(2deg); }
+		75% { transform: rotate(-2deg); }
+		100% { transform: rotate(0deg); }
+	}
+
 </style>
