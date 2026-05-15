@@ -7,10 +7,12 @@ namespace HitsterApp.Controllers;
 public class SpotifyController : Controller
 {
     private readonly SpotifyService _spotifyService;
+    private readonly MusicCardService _musicCardService;
 
-    public SpotifyController(SpotifyService spotifyService)
+    public SpotifyController(SpotifyService spotifyService, MusicCardService musicCardService)
     {
         _spotifyService = spotifyService;
+        _musicCardService = musicCardService;
     }
 
     public async Task<IActionResult> Test()
@@ -20,11 +22,14 @@ public class SpotifyController : Controller
         return Content(token);
     }
 
-    public async Task<IActionResult> RandomCard()
+    public async Task<IActionResult> Search(string q)
     {
-        string playlistId = "37i9dQZF1DXcBWIGoYBM5M";
+        MusicCard card = await _spotifyService.SearchTrack(q);
 
-        MusicCard card = await _spotifyService.GetRandomTrackFromPlaylist(playlistId);
+        string gameId = "game1";
+
+        await _musicCardService.AddCard(gameId, card);
+        // MusicCard card = await _spotifyService.GetRandomTrackFromSearch();
 
         return Json(card);
     }

@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using Google.Cloud.Firestore.V1;
 using HitsterApp.Models;
 
 namespace HitsterApp.Services;
@@ -61,40 +62,36 @@ public class SpotifyService
             ?? throw new Exception("Spotify response did not contain access_token");
     }
 
-    public async Task<MusicCard> GetRandomTrackFromPlaylist(string playlistId)
+    /*
+    public async Task<MusicCard> GetRandomTrackFromSearch()
     {
         string token = await GetAccessToken();
 
         _httpClient.DefaultRequestHeaders.Clear();
         _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
 
+        int randomYear = Random.Shared.Next(1980, 2025);
+
         var response = await _httpClient.GetAsync(
-            $"https://api.spotify.com/v1/playlists/{playlistId}/tracks?market=SE&limit=50"
+            $"https://api.spotify.com/v1/search?q=year:{randomYear}&type=track&market=SE&limit=50"
         );
 
         var json = await response.Content.ReadAsStringAsync();
 
         if (!response.IsSuccessStatusCode)
         {
-            throw new Exception("Spotify playlist error: " + json);
+            throw new Exception($"Spotify search error: {json}");
         }
 
         using JsonDocument doc = JsonDocument.Parse(json);
 
-        var items = doc.RootElement
+        var tracks = doc.RootElement
+            .GetProperty("tracks")
             .GetProperty("items")
             .EnumerateArray()
             .ToList();
 
-        if (items.Count == 0)
-        {
-            throw new Exception("Playlist contains no tracks.");
-        }
-
-        var random = new Random();
-        var randomItem = items[random.Next(items.Count)];
-
-        var track = randomItem.GetProperty("track");
+        var track = tracks[Random.Shared.Next(tracks.Count)];
 
         string title = track.GetProperty("name").GetString() ?? "";
 
@@ -117,5 +114,58 @@ public class SpotifyService
             ReleaseYear = releaseYear,
             State = "deck"
         };
+    }*/
+
+    public async Task<MusicCard> SearchTrack(string search)
+    {
+        string token = await GetAccessToken();
+
+        _httpClient.DefaultRequestHeaders.Clear();
+        _httpClient.DefaultRequestHeaders.Add(
+            "Authorization",
+            $"Bearer {token}"
+        );
+
+        var response = await _httpClient.GetAsync(
+            $"https://api.spotify.com/v1/search?q={search}&type=track&market=SE&limit=1"
+        );
+
+        var json = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new Exception("Spotify search error: " + json);
+        }
+
+        using JsonDocument doc = JsonDocument.Parse(json);
+
+        var track = doc.RootElement
+            .GetProperty("tracks")
+            .GetProperty("items")[0];
+
+        string title =
+            track.GetProperty("name").GetString() ?? "";
+
+        string artist =
+            track.GetProperty("artists")[0]
+                .GetProperty("name")
+                .GetString() ?? "";
+
+        string releaseDate =
+            track.GetProperty("album")
+                .GetProperty("release_date")
+                .GetString() ?? "0000";
+
+        int releaseYear =
+            int.Parse(releaseDate.Substring(0, 4));
+
+        return new MusicCard
+        {
+            Title = title,
+            Artist = artist,
+            ReleaseYear = releaseYear,
+            State = "deck"
+        };
     }
+
 }
