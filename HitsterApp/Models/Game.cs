@@ -1,9 +1,19 @@
+using Google.Cloud.Firestore;
+
 namespace HitsterApp.Models;
 
+[FirestoreData]
 public class Game
 {
+    [FirestoreProperty]
     public string Status { get; set; } = "waiting";
+
+    [FirestoreProperty]
     public string CurrentPlayerId { get; set; } = "";
+
+    [FirestoreProperty]
     public string WinnerId { get; set; } = "";
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [FirestoreProperty]
+    public Timestamp CreatedAt { get; set; } = Timestamp.GetCurrentTimestamp();
 }
