@@ -465,4 +465,74 @@ public class HomeController : Controller
 
 		return RedirectToAction("Game", new { id = gameId });
 	}
+
+	[HttpPost]
+	public async Task<IActionResult> SkipCard(string gameId)
+	{
+		string path = Path.Combine(
+			Directory.GetCurrentDirectory(),
+			"json",
+			"serviceAccountKey.json"
+		);
+
+		Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", path);
+
+		FirestoreDb db = FirestoreDb.Create("hitsterapp-1902d");
+
+		DocumentReference gameRef = db.Collection("games").Document(gameId);
+		DocumentSnapshot gameSnapshot = await gameRef.GetSnapshotAsync();
+		Game game = gameSnapshot.ConvertTo<Game>();
+
+		DocumentReference playerRef = gameRef
+			.Collection("players")
+			.Document(game.CurrentPlayerId);
+
+		DocumentSnapshot playerSnapshot = await playerRef.GetSnapshotAsync();
+
+		if (!playerSnapshot.Exists)
+		{
+			return RedirectToAction("Game", new { id = gameId });
+		}
+
+		Player player = playerSnapshot.ConvertTo<Player>();
+
+		if (player.Tokens < 1)
+		{
+			return RedirectToAction("Game", new { id = gameId });
+		}
+
+		CollectionReference cardsRef = gameRef.Collection("cards");
+
+		QuerySnapshot pendingSnapshot = await cardsRef
+			.WhereEqualTo("State", "pending")
+			.Limit(1)
+			.GetSnapshotAsync();
+
+		if (pendingSnapshot.Documents.Count == 0)
+		{
+			return RedirectToAction("Game", new { id = gameId });
+		}
+
+		await playerRef.UpdateAsync("Tokens", player.Tokens - 1);
+
+		DocumentSnapshot oldCard = pendingSnapshot.Documents[0];
+		await oldCard.Reference.UpdateAsync("State", "discarded");
+
+		QuerySnapshot deckSnapshot = await cardsRef
+			.WhereEqualTo("State", "deck")
+			.GetSnapshotAsync();
+
+		if (deckSnapshot.Documents.Count > 0)
+		{
+			Random random = new Random();
+
+			DocumentSnapshot newCard = deckSnapshot.Documents[
+				random.Next(deckSnapshot.Documents.Count)
+			];
+
+			await newCard.Reference.UpdateAsync("State", "pending");
+		}
+
+		return RedirectToAction("Game", new { id = gameId });
+	}
 }

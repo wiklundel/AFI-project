@@ -111,6 +111,12 @@ else
             <small>@pendingCard.ReleaseYear</small>
         </div>
     </div>
+	<form asp-controller="Home" asp-action="SkipCard" method="post">
+		<input type="hidden" name="gameId" value="@Model.GameId" />
+		<button type="submit">
+			Skippa låt (1 peng)
+		</button>
+	</form>
 }
 
 <h2>Låtkort</h2>
