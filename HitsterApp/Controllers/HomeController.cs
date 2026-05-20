@@ -436,17 +436,8 @@ public class HomeController : Controller
 				{ "PlayerId", game.CurrentPlayerId }
 			});
 
-			bool titleCorrect = string.Equals(
-				pendingCard.Title?.Trim(),
-				guessedTitle?.Trim(),
-				StringComparison.OrdinalIgnoreCase
-			);
-
-			bool artistCorrect = string.Equals(
-				pendingCard.Artist?.Trim(),
-				guessedArtist?.Trim(),
-				StringComparison.OrdinalIgnoreCase
-			);
+			bool titleCorrect = IsCloseEnough(pendingCard.Title, guessedTitle);
+			bool artistCorrect = IsCloseEnough(pendingCard.Artist, guessedArtist);
 
 			if (titleCorrect && artistCorrect)
 			{
@@ -558,5 +549,86 @@ public class HomeController : Controller
 		}
 
 		return RedirectToAction("Game", new { id = gameId });
+	}
+
+		private static string NormalizeGuess(string text)
+	{
+		if (string.IsNullOrWhiteSpace(text))
+			return "";
+
+		text = text.ToLower().Trim();
+
+		// Ta bort features i parentes: "(ft. ...)", "(feat. ...)", "(featuring ...)"
+		text = System.Text.RegularExpressions.Regex.Replace(
+			text,
+			@"\((feat\.?|ft\.?|featuring).*?\)",
+			""
+		);
+
+		// Ta bort features efter bindestreck: "- feat. ..."
+		text = System.Text.RegularExpressions.Regex.Replace(
+			text,
+			@"[-–—]\s*(feat\.?|ft\.?|featuring).*",
+			""
+		);
+
+		// Ta bort onödiga tecken
+		text = System.Text.RegularExpressions.Regex.Replace(text, @"[^a-z0-9åäö ]", "");
+
+		// Ta bort extra mellanslag
+		text = System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ").Trim();
+
+		return text;
+	}
+
+	private static int LevenshteinDistance(string a, string b)
+	{
+		int[,] dp = new int[a.Length + 1, b.Length + 1];
+
+		for (int i = 0; i <= a.Length; i++)
+			dp[i, 0] = i;
+
+		for (int j = 0; j <= b.Length; j++)
+			dp[0, j] = j;
+
+		for (int i = 1; i <= a.Length; i++)
+		{
+			for (int j = 1; j <= b.Length; j++)
+			{
+				int cost = a[i - 1] == b[j - 1] ? 0 : 1;
+
+				dp[i, j] = Math.Min(
+					Math.Min(dp[i - 1, j] + 1, dp[i, j - 1] + 1),
+					dp[i - 1, j - 1] + cost
+				);
+			}
+		}
+
+		return dp[a.Length, b.Length];
+	}
+
+	private static bool IsCloseEnough(string correct, string guess)
+	{
+		correct = NormalizeGuess(correct);
+		guess = NormalizeGuess(guess);
+
+		if (string.IsNullOrWhiteSpace(guess))
+			return false;
+
+		if (correct == guess)
+			return true;
+
+		int distance = LevenshteinDistance(correct, guess);
+
+		// Tillåt fler småfel på längre titlar
+		int allowedErrors = correct.Length switch
+		{
+			<= 5 => 0,
+			<= 10 => 1,
+			<= 20 => 2,
+			_ => 3
+		};
+
+		return distance <= allowedErrors;
 	}
 }
