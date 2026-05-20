@@ -16,4 +16,7 @@ public class Game
 
     [FirestoreProperty]
     public Timestamp CreatedAt { get; set; } = Timestamp.GetCurrentTimestamp();
+
+	[FirestoreProperty]
+	public string JoinCode { get; set; } = "";
 }

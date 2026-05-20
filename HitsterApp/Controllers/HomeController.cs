@@ -42,30 +42,33 @@ public class HomeController : Controller
 		
 		FirestoreDb db = FirestoreDb.Create("hitsterapp-1902d");
 
-		Game game = new Game();
+		string? username = HttpContext.Session.GetString("Username");
+
+		if (username == null)
+		{
+			return RedirectToAction("Login", "Auth");
+		}
+
+		Game game = new Game
+		{
+			Status = "waiting",
+			JoinCode = GenerateJoinCode()
+		};
 
 		DocumentReference docRef = await db.Collection("games").AddAsync(game);
 
-		Player player1 = new Player
+		Console.WriteLine($"Created game with ID: {docRef.Id}");
+
+		Player player = new Player
 		{
-			Username = "Anna"
+			Username = username,
+			Score = 1,
+			Tokens = 2
 		};
 
-		Player player2 = new Player
-		{
-			Username = "Elvira"
-		};
+		DocumentReference playerRef = await docRef.Collection("players").AddAsync(player);
 
-		DocumentReference player1Ref = await docRef.Collection("players").AddAsync(player1);
-		DocumentReference player2Ref = await docRef.Collection("players").AddAsync(player2);
-
-		List<DocumentReference> playerRefs = new()
-		{
-			player1Ref,
-			player2Ref
-		};
-
-		await docRef.UpdateAsync("CurrentPlayerId", player1Ref.Id);
+		await docRef.UpdateAsync("CurrentPlayerId", playerRef.Id);
 
 		List<MusicCard> cards = new()
 		{
@@ -95,9 +98,9 @@ public class HomeController : Controller
 
 		for (int i = 0; i < cards.Count; i++)
 		{
-			if (i < playerRefs.Count)
+			if (i == 0)
 			{
-				cards[i].PlayerId = playerRefs[i].Id;
+				cards[i].PlayerId = playerRef.Id;
 				cards[i].State = "safe";
 			}
 
@@ -157,7 +160,8 @@ public class HomeController : Controller
 			CurrentPlayerName = currentPlayerName,
 			Players = players,
 			Cards = cards,
-			WinnerId = game.WinnerId
+			WinnerId = game.WinnerId,
+			JoinCode = game.JoinCode
 		};
 
 		return View(model);
@@ -731,5 +735,87 @@ public class HomeController : Controller
 		};
 
 		return distance <= allowedErrors;
+	}
+
+	private static string GenerateJoinCode()
+	{
+		const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+		Random random = new Random();
+
+		return new string(Enumerable
+			.Repeat(chars, 5)
+			.Select(s => s[random.Next(s.Length)])
+			.ToArray());
+	}
+
+	private FirestoreDb GetDb()
+    {
+        string path = Path.Combine(
+            Directory.GetCurrentDirectory(),
+            "json",
+            "serviceAccountKey.json"
+        );
+
+        Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", path);
+
+        return FirestoreDb.Create("hitsterapp-1902d");
+    }
+
+	[HttpPost]
+	public async Task<IActionResult> JoinGame(string joinCode)
+	{
+		string? username = HttpContext.Session.GetString("Username");
+
+		if (username == null)
+		{
+			return RedirectToAction("Login", "Auth");
+		}
+
+		FirestoreDb db = GetDb();
+
+		QuerySnapshot gameSnapshot = await db.Collection("games")
+			.WhereEqualTo("JoinCode", joinCode.Trim().ToUpper())
+			.Limit(1)
+			.GetSnapshotAsync();
+
+		if (gameSnapshot.Documents.Count == 0)
+		{
+			return RedirectToAction("Index");
+		}
+
+		DocumentSnapshot gameDoc = gameSnapshot.Documents[0];
+
+		Player player = new Player
+		{
+			Username = username,
+			Score = 1,
+			Tokens = 2
+		};
+
+		DocumentReference playerRef = await gameDoc.Reference
+			.Collection("players")
+			.AddAsync(player);
+
+		QuerySnapshot deckCards = await gameDoc.Reference
+			.Collection("cards")
+			.WhereEqualTo("State", "deck")
+			.GetSnapshotAsync();
+
+		if (deckCards.Documents.Count > 0)
+		{
+			Random random = new Random();
+
+			DocumentSnapshot startCard = deckCards.Documents[
+				random.Next(deckCards.Documents.Count)
+			];
+
+			await startCard.Reference.UpdateAsync(new Dictionary<string, object>
+			{
+				{ "State", "safe" },
+				{ "PlayerId", playerRef.Id }
+			});
+		}
+
+		return RedirectToAction("Game", new { id = gameDoc.Id });
 	}
 }

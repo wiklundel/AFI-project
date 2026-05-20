@@ -7,6 +7,15 @@
     <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
 </div>
 
+<h1>Hitster</h1>
+
 <form asp-controller="Home" asp-action="StartGame" method="post">
     <button type="submit">Starta spel</button>
+</form>
+
+<h2>Gå med i spel</h2>
+
+<form asp-controller="Home" asp-action="JoinGame" method="post">
+    <input type="text" name="joinCode" placeholder="Skriv spelkod" />
+    <button type="submit">Gå med</button>
 </form>
