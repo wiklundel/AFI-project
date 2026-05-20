@@ -5,8 +5,9 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 builder.Services.AddSingleton<FirestoreService>();
+builder.Services.AddSingleton<MusicCardService>();
+
 builder.Services.AddHttpClient<SpotifyService>();
-builder.Services.AddHttpClient<MusicCardService>();
 
 var app = builder.Build();
 

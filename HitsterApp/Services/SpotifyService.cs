@@ -159,11 +159,23 @@ public class SpotifyService
         int releaseYear =
             int.Parse(releaseDate.Substring(0, 4));
 
+        string spotifyId = 
+            track.GetProperty("id").GetString() ?? "";
+
+        string previewUrl = "";
+            if (track.TryGetProperty("preview_url", out JsonElement previewElement)
+                && previewElement.ValueKind != JsonValueKind.Null)
+            {
+                previewUrl = previewElement.GetString() ?? "";
+            }
+
         return new MusicCard
         {
             Title = title,
             Artist = artist,
             ReleaseYear = releaseYear,
+            SpotifyId = spotifyId,
+            PreviewUrl = previewUrl,
             State = "deck"
         };
     }
