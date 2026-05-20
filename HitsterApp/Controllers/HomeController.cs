@@ -365,7 +365,7 @@ public class HomeController : Controller
 	}
 
 	[HttpPost]
-	public async Task<IActionResult> PlaceCard(string gameId, int position)
+	public async Task<IActionResult> PlaceCard(string gameId, int position, string guessedTitle, string guessedArtist)
 	{
 		string path = Path.Combine(
 			Directory.GetCurrentDirectory(),
@@ -435,6 +435,30 @@ public class HomeController : Controller
 				{ "State", "guessed" },
 				{ "PlayerId", game.CurrentPlayerId }
 			});
+
+			bool titleCorrect = string.Equals(
+				pendingCard.Title?.Trim(),
+				guessedTitle?.Trim(),
+				StringComparison.OrdinalIgnoreCase
+			);
+
+			bool artistCorrect = string.Equals(
+				pendingCard.Artist?.Trim(),
+				guessedArtist?.Trim(),
+				StringComparison.OrdinalIgnoreCase
+			);
+
+			if (titleCorrect && artistCorrect)
+			{
+				DocumentReference playerRef = gameRef
+					.Collection("players")
+					.Document(game.CurrentPlayerId);
+
+				DocumentSnapshot playerSnapshot = await playerRef.GetSnapshotAsync();
+				Player player = playerSnapshot.ConvertTo<Player>();
+
+				await playerRef.UpdateAsync("Tokens", player.Tokens + 1);
+			}
 		}
 		else
 		{

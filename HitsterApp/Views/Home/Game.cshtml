@@ -56,11 +56,9 @@ else
 
         @if (player.PlayerId == Model.CurrentPlayerId && pendingCard != null && Model.Status != "finished")
         {
-            <form asp-controller="Home" asp-action="PlaceCard" method="post" class="drop-zone">
-                <input type="hidden" name="gameId" value="@Model.GameId" />
-                <input type="hidden" name="position" value="0" />
-                <button type="submit">+</button>
-            </form>
+            <div class="drop-zone">
+                <button type="submit" form="placeCardForm" name="position" value="0">+</button>
+            </div>
         }
 
         @for (int i = 0; i < playerCards.Count; i++)
@@ -74,11 +72,9 @@ else
 
             @if (player.PlayerId == Model.CurrentPlayerId && pendingCard != null && Model.Status != "finished")
             {
-                <form asp-controller="Home" asp-action="PlaceCard" method="post" class="drop-zone">
-                    <input type="hidden" name="gameId" value="@Model.GameId" />
-                    <input type="hidden" name="position" value="@(i + 1)" />
-                    <button type="submit">+</button>
-                </form>
+                <div class="drop-zone">
+                    <button type="submit" form="placeCardForm" name="position" value="@(i + 1)">+</button>
+                </div>
             }
         }
     </div>
@@ -111,12 +107,18 @@ else
             <small>@pendingCard.ReleaseYear</small>
         </div>
     </div>
-	<form asp-controller="Home" asp-action="SkipCard" method="post">
-		<input type="hidden" name="gameId" value="@Model.GameId" />
-		<button type="submit">
-			Skippa låt (1 peng)
-		</button>
-	</form>
+
+    <form id="placeCardForm" asp-controller="Home" asp-action="PlaceCard" method="post">
+        <input type="hidden" name="gameId" value="@Model.GameId" />
+
+        <h3>Extra gissning för +1 peng</h3>
+
+        <label>Låttitel</label>
+        <input type="text" name="guessedTitle" placeholder="Valfritt" />
+
+        <label>Artist</label>
+        <input type="text" name="guessedArtist" placeholder="Valfritt" />
+    </form>
 }
 
 <h2>Låtkort</h2>
