@@ -551,6 +551,107 @@ public class HomeController : Controller
 		return RedirectToAction("Game", new { id = gameId });
 	}
 
+	[HttpPost]
+	public async Task<IActionResult> BuyCard(string gameId)
+	{
+		string path = Path.Combine(
+			Directory.GetCurrentDirectory(),
+			"json",
+			"serviceAccountKey.json"
+		);
+
+		Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", path);
+
+		FirestoreDb db = FirestoreDb.Create("hitsterapp-1902d");
+
+		DocumentReference gameRef = db.Collection("games").Document(gameId);
+		DocumentSnapshot gameSnapshot = await gameRef.GetSnapshotAsync();
+		Game game = gameSnapshot.ConvertTo<Game>();
+
+		DocumentReference playerRef = gameRef
+			.Collection("players")
+			.Document(game.CurrentPlayerId);
+
+		DocumentSnapshot playerSnapshot = await playerRef.GetSnapshotAsync();
+
+		if (!playerSnapshot.Exists)
+		{
+			return RedirectToAction("Game", new { id = gameId });
+		}
+
+		Player player = playerSnapshot.ConvertTo<Player>();
+
+		if (player.Tokens < 3)
+		{
+			return RedirectToAction("Game", new { id = gameId });
+		}
+
+		CollectionReference cardsRef = gameRef.Collection("cards");
+
+		QuerySnapshot pendingSnapshot = await cardsRef
+			.WhereEqualTo("State", "pending")
+			.Limit(1)
+			.GetSnapshotAsync();
+
+		if (pendingSnapshot.Documents.Count == 0)
+		{
+			return RedirectToAction("Game", new { id = gameId });
+		}
+
+		await playerRef.UpdateAsync("Tokens", player.Tokens - 3);
+
+		DocumentSnapshot pendingCard = pendingSnapshot.Documents[0];
+
+		await pendingCard.Reference.UpdateAsync(new Dictionary<string, object>
+		{
+			{ "State", "safe" },
+			{ "PlayerId", game.CurrentPlayerId }
+		});
+
+		QuerySnapshot guessedCards = await cardsRef
+			.WhereEqualTo("State", "guessed")
+			.WhereEqualTo("PlayerId", game.CurrentPlayerId)
+			.GetSnapshotAsync();
+
+		foreach (DocumentSnapshot card in guessedCards.Documents)
+		{
+			await card.Reference.UpdateAsync("State", "safe");
+		}
+
+		QuerySnapshot safeCards = await cardsRef
+			.WhereEqualTo("State", "safe")
+			.WhereEqualTo("PlayerId", game.CurrentPlayerId)
+			.GetSnapshotAsync();
+
+		int newScore = safeCards.Documents.Count;
+		await playerRef.UpdateAsync("Score", newScore);
+
+		if (newScore >= 10)
+		{
+			await gameRef.UpdateAsync(new Dictionary<string, object>
+			{
+				{ "Status", "finished" },
+				{ "WinnerId", game.CurrentPlayerId }
+			});
+
+			return RedirectToAction("Game", new { id = gameId });
+		}
+
+		QuerySnapshot playersSnapshot = await gameRef.Collection("players").GetSnapshotAsync();
+
+		List<string> playerIds = playersSnapshot.Documents
+			.Select(doc => doc.Id)
+			.ToList();
+
+		int currentIndex = playerIds.IndexOf(game.CurrentPlayerId);
+		int nextIndex = (currentIndex + 1) % playerIds.Count;
+		string nextPlayerId = playerIds[nextIndex];
+
+		await gameRef.UpdateAsync("CurrentPlayerId", nextPlayerId);
+
+		return RedirectToAction("Game", new { id = gameId });
+	}
+
 		private static string NormalizeGuess(string text)
 	{
 		if (string.IsNullOrWhiteSpace(text))

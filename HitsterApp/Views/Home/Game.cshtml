@@ -119,6 +119,16 @@ else
         <label>Artist</label>
         <input type="text" name="guessedArtist" placeholder="Valfritt" />
     </form>
+
+	<form asp-controller="Home" asp-action="SkipCard" method="post">
+		<input type="hidden" name="gameId" value="@Model.GameId" />
+		<button type="submit">Skippa låtkort (1 peng)</button>
+	</form>
+
+	<form asp-controller="Home" asp-action="BuyCard" method="post">
+		<input type="hidden" name="gameId" value="@Model.GameId" />
+		<button type="submit">Köp låtkort (3 pengar)</button>
+	</form>
 }
 
 <h2>Låtkort</h2>
